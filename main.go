@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"sync/atomic"
 )
@@ -34,21 +35,26 @@ func main() {
 
 	mux.Handle("/app/assets/logo.png", http.StripPrefix("/app", http.FileServer(http.Dir("."))))
 
-	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	mux.HandleFunc("GET /admin/metrics", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(fmt.Sprintf("Hits: %d", apiCfg.fileserverHits.Load())))
-		fmt.Println("Hits: ", apiCfg.fileserverHits.Load())
+		w.Write([]byte(fmt.Sprintf(`
+			<html>
+			  <body>
+			    <h1>Welcome, Chirpy Admin</h1>
+			    <p>Chirpy has been visited %d times!</p>
+			  </body>
+			</html>
+		`, apiCfg.fileserverHits.Load())))
 	})
 
-	mux.Handle("/reset", apiCfg.middlewareMetricsReset(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("POST /api/reset", apiCfg.middlewareMetricsReset(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(fmt.Sprintf("Hits: %d", apiCfg.fileserverHits.Load())))
-		fmt.Println("Hits: ", apiCfg.fileserverHits.Load())
 	})))
 
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
@@ -56,5 +62,5 @@ func main() {
 
 	fmt.Println("Server started on port 8080")
 	server := &http.Server{Addr: ":8080", Handler: mux}
-	server.ListenAndServe()
+	log.Fatal(server.ListenAndServe())
 }
